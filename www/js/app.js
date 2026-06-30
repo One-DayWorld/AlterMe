@@ -91,19 +91,22 @@ async function send() {
   const message = input.value.trim();
   if (!message) return;
 
-  const apiKey = await Store.getApiKey(provider);
-  if (!apiKey) { addMsg('sys', `请先在「设置」里填 ${Brain.MODEL_DISPLAY[provider]} 的 API Key`, 'sys'); return; }
-
   busy = true; $('send-btn').disabled = true;
-  input.value = ''; input.style.height = 'auto';
-  addMsg('me', message);
-  const typing = addMsg('ai', '正在思考…', 'ai typing');
+  const roleId = currentRole.id;   // 锁定本轮角色,避免发送中切换/删除导致写错角色
 
+  let typing = null;
   try {
-    const history = await Store.getHistory(currentRole.id);
+    const apiKey = await Store.getApiKey(provider);
+    if (!apiKey) { addMsg('sys', `请先在「设置」里填 ${Brain.MODEL_DISPLAY[provider]} 的 API Key`, 'sys'); return; }
+
+    input.value = ''; input.style.height = 'auto';
+    addMsg('me', message);
+    typing = addMsg('ai', '正在思考…', 'ai typing');
+
+    const history = await Store.getHistory(roleId);
     const persona = currentRole.persona || '';
     const rules = currentRole.rules || '';
-    const pet = await Store.getPet(currentRole.id);
+    const pet = await Store.getPet(roleId);
     const profile = await Memory.loadProfile();
     const profileInject = Brain.buildProfileInject(profile, pet.level || 1, !!persona);
     const systemPrompt = Brain.buildSystemPrompt(provider, persona, profileInject, rules);
@@ -113,17 +116,16 @@ async function send() {
 
     history.push({ role: 'user', content: message });
     history.push({ role: 'assistant', content: reply });
-    await Store.saveHistory(currentRole.id, history);
+    await Store.saveHistory(roleId, history);
 
     Memory.pushTurn(message, reply);
-    await Store.addXP(8);                 // 记给当前激活角色
+    await Store.addXP(8);
     await refreshBond();
     if (Memory.bufferFull()) {
       Memory.runRefine(provider, apiKey).then(r => { if (r.changed) refreshBond(); }).catch(() => {});
     }
   } catch (e) {
-    typing.classList.remove('typing');
-    typing.textContent = '出错了：' + (e.message || '请检查 API Key 或网络');
+    if (typing) { typing.classList.remove('typing'); typing.textContent = '出错了：' + (e.message || '请检查 API Key 或网络'); }
   } finally {
     busy = false; $('send-btn').disabled = false;
   }
@@ -239,15 +241,14 @@ async function saveRoleFromEditor() {
 }
 
 async function removeRole(id) {
+  if (busy) { alert('正在对话中,请稍后再删除角色'); return; }
   const roles = await Store.getRoles();
   if (roles.length <= 1) { alert('至少保留一个角色'); return; }
   if (!confirm('删除这个角色?它的对话历史和羁绊会一并删除(长期画像不受影响)。')) return;
   const wasActive = currentRole.id === id;
   await Store.deleteRole(id);
   if (wasActive) {
-    const left = await Store.getRoles();
-    currentRole = left[0];
-    await Store.setActiveRoleId(currentRole.id);
+    currentRole = await Store.getActiveRole();   // deleteRole 已把激活切到第一个
     await loadMessagesForRole();
   }
   await renderRoleList(); await renderRoleBar(); await refreshBond();
@@ -258,8 +259,10 @@ function onAvatarFile(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
+  reader.onerror = () => { alert('图片读取失败,请换一张'); $('role-avatar-file').value = ''; };
   reader.onload = () => {
     const img = new Image();
+    img.onerror = () => { alert('图片格式不支持,请换一张'); $('role-avatar-file').value = ''; };
     img.onload = () => {
       const size = 128;
       const canvas = document.createElement('canvas');
@@ -303,6 +306,7 @@ async function init() {
   const roles = await Store.getRoles();                 // 触发首次迁移
   const activeId = await Store.getActiveRoleId();
   currentRole = roles.find(r => r.id === activeId) || roles[0];
+  if (!currentRole) { addMsg('sys', '角色数据异常,请到设置→备份恢复重新导入,或清空记忆重置。', 'sys'); return; }
 
   await renderRoleBar();
   await refreshBond();

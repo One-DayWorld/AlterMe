@@ -67,7 +67,8 @@ const Store = (() => {
   // ── 角色 ──
   // 首次(无 roles)执行一次性迁移:建 4 个内置角色,旧 persona/rules/history/pet 迁入女王。幂等。
   async function ensureRolesInit() {
-    if (await getRaw('roles')) return;            // 已初始化 → 跳过
+    const _existing = await getRaw('roles');      // 已初始化(且非空数组)→ 跳过;空/损坏则重建
+    if (_existing) { try { const _rs = JSON.parse(_existing); if (Array.isArray(_rs) && _rs.length) return; } catch (_) {} }
     const roles = clone(ROLE_TEMPLATES);
     const oldPersona = (await getRaw('persona')) || '';
     const oldRules   = (await getRaw('sessionRules')) || '';
