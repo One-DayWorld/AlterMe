@@ -122,26 +122,26 @@ const Store = (() => {
   async function saveHistory(roleId, h){ const id = roleId || await getActiveRoleId(); if (h.length > HISTORY_MAX) h = h.slice(-HISTORY_MAX); await setJSON('chatHistory_' + id, h); }
 
   // ── 备份 / 恢复 ──
-  // 把全部可恢复数据原样导出为一个对象;导入时原样写回。存的就是原始字符串(有的是 JSON 串、
-  // 有的是纯文本),所以原样搬运即可完美还原,不用关心每个 key 的类型。
-  const EXPORT_KEYS = [
-    'profile', 'chatHistory', 'persona', 'sessionRules', 'pet', 'provider',
-    'apiKey_qwen', 'apiKey_deepseek',   // 模型 Key(目前就这两个后台,见 brain.js ENDPOINTS)
-  ];
+  // 固定键 + 按 roles 动态拼出每个角色的 chatHistory_<id> / pet_<id>,全部原样搬运。
   async function exportAll() {
+    const fixed = ['profile', 'provider', 'apiKey_qwen', 'apiKey_deepseek', 'roles', 'activeRoleId'];
+    const roles = await getRoles();
+    const dynamic = [];
+    for (const r of roles) dynamic.push('chatHistory_' + r.id, 'pet_' + r.id);
     const data = {};
-    for (const k of EXPORT_KEYS) {
+    for (const k of [...fixed, ...dynamic]) {
       const v = await getRaw(k);
       if (v != null) data[k] = v;
     }
-    return { _app: 'AlterMe', _ver: 1, _at: new Date().toISOString(), data };
+    return { _app: 'AlterMe', _ver: 2, _at: new Date().toISOString(), data };
   }
-  // 返回成功写回的条目数;格式不对则抛错。
+  // 原样写回 data 里的所有键。兼容旧备份(_ver 1):旧备份无 roles,导入后下次 getRoles 触发迁移,
+  // 把旧 persona/chatHistory/pet 自动并入女王。
   async function importAll(obj) {
     if (!obj || obj._app !== 'AlterMe' || !obj.data || typeof obj.data !== 'object')
       throw new Error('不是有效的 AlterMe 备份');
     let n = 0;
-    for (const k of EXPORT_KEYS) {
+    for (const k of Object.keys(obj.data)) {
       if (obj.data[k] != null) { await setRaw(k, String(obj.data[k])); n++; }
     }
     return n;
