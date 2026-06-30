@@ -14,9 +14,12 @@
     <button class="icon-btn" id="open-settings">⚙ 设置</button>
   </div>
 
+  <div class="rolebar" id="rolebar"></div>
+
   <div id="messages"></div>
 
   <div class="inputbar">
+    <button class="clear-screen" id="clear-screen" title="只清当前屏,不删聊天历史">清屏</button>
     <textarea id="chat-input" rows="1" placeholder="说点什么…"></textarea>
     <button class="send-btn" id="send-btn">发送</button>
   </div>
@@ -42,19 +45,26 @@
       </div>
 
       <div class="group">
-        <h3>本场规则（置顶 · 永不遗忘）</h3>
-        <div class="note">为这场对话设几条硬性铁律。它会被钉在最顶端、随每条消息一起发送，优先级高于性格人设，无论聊多长都不会被挤掉、不会忘。建议简短（如：始终保持角色不跳戏 / 只用第二人称称呼我 / 不准说教）。</div>
-        <textarea class="txt" id="rules" placeholder="例：① 全程保持角色，绝不跳戏或自称 AI；② 用『你』称呼我，自称『本王』；③ 回答简短，不说教。"></textarea>
-        <button class="btn" id="save-rules">保存规则</button>
-        <span class="ok" id="rules-ok">✓ 已保存</span>
+        <h3>陪伴角色</h3>
+        <div class="note">管理你的陪伴角色:编辑人设/专属铁律、设头像,或新建/删除。聊天页顶部可快速切换。专属铁律会钉在该角色对话最顶端、永不遗忘。</div>
+        <div id="role-list"></div>
+        <button class="btn ghost" id="add-role" style="margin-top:6px">＋ 新建角色</button>
       </div>
 
-      <div class="group">
-        <h3>性格人设</h3>
-        <div class="note">写一段性格描述，聊天时它会完全照此说话（语气 / 自称 / 怎么称呼你）。留空＝中性亲切的朋友。模型身份如实回答、不编造事实不受影响。</div>
-        <textarea class="txt" id="persona" placeholder="例：高冷女王风的女性 AI，说话简短克制，带点居高临下的慵懒，偶尔毒舌但其实在意你。自称『本王』，叫你『你』。"></textarea>
-        <button class="btn" id="save-persona">保存性格</button>
-        <span class="ok" id="persona-ok">✓ 已保存</span>
+      <div class="group" id="role-editor" style="display:none">
+        <h3 id="role-editor-title">编辑角色</h3>
+        <label class="row">名字 <input class="txt" id="role-name" style="width:60%;margin:0" maxlength="12" placeholder="如 女王"></label>
+        <label class="row">Emoji 头像 <input class="txt" id="role-emoji" style="width:60%;margin:0" maxlength="4" placeholder="如 👑"></label>
+        <div class="note">图片头像(可选,优先于 emoji 显示):</div>
+        <input type="file" id="role-avatar-file" accept="image/*">
+        <div id="role-avatar-preview" class="note">（无图片头像,将用 emoji）</div>
+        <div class="note" style="margin-top:10px">性格人设(聊天完全照此语气/自称/称呼):</div>
+        <textarea class="txt" id="role-persona" placeholder="例：高冷女王风,说话简短克制,偶尔毒舌但其实在意你。自称『本王』,叫你『你』。"></textarea>
+        <div class="note">专属铁律(可空):</div>
+        <textarea class="txt" id="role-rules" placeholder="例：① 全程保持角色不跳戏；② 用『你』称呼我；③ 回答简短不说教。"></textarea>
+        <button class="btn" id="role-save">保存角色</button>
+        <button class="btn ghost" id="role-cancel">取消</button>
+        <span class="ok" id="role-ok">✓ 已保存</span>
       </div>
 
       <div class="group">
