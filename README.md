@@ -2,7 +2,7 @@
 
 # 🪞 AlterMe
 
-### Your own AI companion — with a personality, a memory of *you*, and your keys never leaving the phone.
+### Your own AI companions — switch between personalities for every mood, all sharing one memory of *you*, with your keys never leaving the phone.
 
 **[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md)**
 
@@ -12,7 +12,7 @@
 ![No backend](https://img.shields.io/badge/backend-none%20·%20100%25%20on--device-success)
 ![License](https://img.shields.io/badge/license-MIT-black)
 
-*A pocket AI friend that role-plays the personality you give it, quietly learns who you are, and runs entirely on your device. No server. No tracking. Bring your own API key.*
+*A pocket of AI companions — a different personality for every mood — that quietly learn who you are and run entirely on your device. No server. No tracking. Bring your own API key.*
 
 ⭐ **If this resonates, a star helps a lot — it's how others find the project.** ⭐
 
@@ -28,9 +28,9 @@ It's also tiny and hackable: ~6 small JS files, no framework, no build pipeline.
 
 ## 🎯 Features
 
-- 🎭 **Custom persona** — Write one paragraph and it *becomes* that character: tone, how it refers to itself, how it calls you. Cold queen, cheerful sidekick, terse senpai — your call. Yet when you ask "what model are you?" it answers honestly (no fake "I'm GPT").
-- 🧠 **Real memory** — It quietly distills a profile of you from your conversations, and you can **feed it articles** (paste a link or the text) to shape what it understands about your interests.
-- 💞 **Bond & levels** — Your relationship gains XP and levels up the more you talk. Small touch, surprisingly sticky.
+- 🎭 **Multiple switchable roles** — Not just one persona: built-in templates (queen, listener, playmate, rational advisor) you can freely add, edit, or delete. Each role has its own personality, its own pinned rules, its own chat history and bond level — switch with one tap from the top bar, and give each a custom image avatar. Ask "what model are you?" and it still answers honestly (no fake "I'm GPT").
+- 🧠 **Real memory, shared across roles** — It quietly distills a long-term profile of you from your conversations; every role shares this understanding of *you*. **Feed it articles** (paste a link or the text) to shape what it knows about your interests.
+- 💞 **Per-role bond & levels** — Each role builds its own relationship: separate XP and levels, the more you talk to it. Small touch, surprisingly sticky.
 - 🔀 **Two models, one tap** — Qwen-Plus (Alibaba) and DeepSeek, both OpenAI-compatible. Switch anytime.
 - 🔒 **Privacy by architecture** — API key is stored locally only; nothing is uploaded to any server of ours (there isn't one). Wipe all memory with one button.
 - 📱 **Runs where Google can't** — Pure WebView, zero Google Mobile Services dependency, so it installs cleanly on Huawei / HarmonyOS 4.2 as a normal APK.
@@ -75,13 +75,14 @@ The APK lands in `android/app/build/outputs/apk/`. Copy it to your phone, allow 
 
 1. Open the app → **⚙ Settings** → pick a model (Qwen / DeepSeek) and paste its **API key** (stored locally, never uploaded).
 2. Just chat. After a few turns it starts distilling a profile of you in the background.
-3. **Persona** — write a personality and it instantly talks that way. Leave it blank for a warm, neutral friend.
-4. **Memory** — see what it remembers (and delete anything). **Feed articles** by link or pasted text to shape its sense of your interests.
+3. **Roles** — in Settings → *Companion roles*, pick a built-in template or create your own: name, emoji or image avatar, personality, and per-role rules. Switch roles anytime from the top bar; each keeps its own conversation. Tap **Clear screen** to clear the current view without deleting history.
+4. **Memory** — see what it remembers (and delete anything); it's shared across all your roles. **Feed articles** by link or pasted text to shape its sense of your interests.
 
 > 🔑 You need your own API key from [Alibaba DashScope (Qwen)](https://dashscope.console.aliyun.com/) or [DeepSeek](https://platform.deepseek.com/).
 
 ## 🗺️ Roadmap
 
+- [ ] Auto-switch roles by time of day / context
 - [ ] File import (docx / txt) for feeding articles
 - [ ] More model providers (OpenAI / Anthropic / local)
 - [ ] Optional relay backend for safer key handling when distributing
