@@ -66,9 +66,11 @@ const Store = (() => {
 
   // ── 角色 ──
   // 首次(无 roles)执行一次性迁移:建 4 个内置角色,旧 persona/rules/history/pet 迁入女王。幂等。
+  let _rolesReady = false;   // 内存缓存:已初始化过就不再每次都 IO 读 roles(降低 native IPC 次数)
   async function ensureRolesInit() {
+    if (_rolesReady) return;
     const _existing = await getRaw('roles');      // 已初始化(且非空数组)→ 跳过;空/损坏则重建
-    if (_existing) { try { const _rs = JSON.parse(_existing); if (Array.isArray(_rs) && _rs.length) return; } catch (_) {} }
+    if (_existing) { try { const _rs = JSON.parse(_existing); if (Array.isArray(_rs) && _rs.length) { _rolesReady = true; return; } } catch (_) {} }
     const roles = clone(ROLE_TEMPLATES);
     const oldPersona = (await getRaw('persona')) || '';
     const oldRules   = (await getRaw('sessionRules')) || '';
@@ -81,6 +83,7 @@ const Store = (() => {
     if (oldHist) await setRaw('chatHistory_queen', oldHist);
     const oldPet = await getRaw('pet');
     if (oldPet) await setRaw('pet_queen', oldPet);
+    _rolesReady = true;
   }
 
   async function getRoles()          { await ensureRolesInit(); return await getJSON('roles', []); }
@@ -136,15 +139,21 @@ const Store = (() => {
     }
     return { _app: 'AlterMe', _ver: 2, _at: new Date().toISOString(), data };
   }
-  // 原样写回 data 里的所有键。兼容旧备份(_ver 1):旧备份无 roles,导入后下次 getRoles 触发迁移,
-  // 把旧 persona/chatHistory/pet 自动并入女王。
+  // 导入:白名单过滤(只认已知键),原样写回。
+  // ver1 旧备份(无 roles):写回旧 persona/chatHistory/pet 后,清掉本机 roles/activeRoleId,
+  // 让下次 getRoles 触发迁移把旧数据并入女王(否则已有 roles 的设备会跳过迁移、旧历史成孤儿)。
   async function importAll(obj) {
     if (!obj || obj._app !== 'AlterMe' || !obj.data || typeof obj.data !== 'object')
       throw new Error('不是有效的 AlterMe 备份');
+    const FIXED = ['profile', 'provider', 'apiKey_qwen', 'apiKey_deepseek', 'roles', 'activeRoleId'];
+    const LEGACY = ['persona', 'sessionRules', 'chatHistory', 'pet'];   // 兼容 ver1 备份
+    const allow = (k) => FIXED.includes(k) || LEGACY.includes(k) || k.startsWith('chatHistory_') || k.startsWith('pet_');
     let n = 0;
     for (const k of Object.keys(obj.data)) {
-      if (obj.data[k] != null) { await setRaw(k, String(obj.data[k])); n++; }
+      if (obj.data[k] != null && allow(k)) { await setRaw(k, String(obj.data[k])); n++; }
     }
+    if (obj.data.roles == null) { await removeRaw('roles'); await removeRaw('activeRoleId'); }
+    _rolesReady = false;   // 强制下次重新初始化/迁移
     return n;
   }
 

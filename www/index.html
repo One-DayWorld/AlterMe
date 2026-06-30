@@ -59,9 +59,9 @@
         <input type="file" id="role-avatar-file" accept="image/*">
         <div id="role-avatar-preview" class="note">（无图片头像,将用 emoji）</div>
         <div class="note" style="margin-top:10px">性格人设(聊天完全照此语气/自称/称呼):</div>
-        <textarea class="txt" id="role-persona" placeholder="例：高冷女王风,说话简短克制,偶尔毒舌但其实在意你。自称『本王』,叫你『你』。"></textarea>
+        <textarea class="txt" id="role-persona" maxlength="2000" placeholder="例：高冷女王风,说话简短克制,偶尔毒舌但其实在意你。自称『本王』,叫你『你』。"></textarea>
         <div class="note">专属铁律(可空):</div>
-        <textarea class="txt" id="role-rules" placeholder="例：① 全程保持角色不跳戏；② 用『你』称呼我；③ 回答简短不说教。"></textarea>
+        <textarea class="txt" id="role-rules" maxlength="1000" placeholder="例：① 全程保持角色不跳戏；② 用『你』称呼我；③ 回答简短不说教。"></textarea>
         <button class="btn" id="role-save">保存角色</button>
         <button class="btn ghost" id="role-cancel">取消</button>
         <span class="ok" id="role-ok">✓ 已保存</span>

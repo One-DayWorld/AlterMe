@@ -126,6 +126,7 @@ async function send() {
     }
   } catch (e) {
     if (typing) { typing.classList.remove('typing'); typing.textContent = '出错了：' + (e.message || '请检查 API Key 或网络'); }
+    else { addMsg('sys', '出错了：' + (e.message || '请检查 API Key 或网络'), 'sys'); }
   } finally {
     busy = false; $('send-btn').disabled = false;
   }
@@ -230,9 +231,10 @@ async function saveRoleFromEditor() {
   role.name = name;
   role.emoji = $('role-emoji').value.trim();
   role.avatar = pendingAvatar;
-  role.persona = $('role-persona').value.trim();
-  role.rules = $('role-rules').value.trim();
-  await Store.upsertRole(role);
+  role.persona = $('role-persona').value.trim().slice(0, 2000);
+  role.rules = $('role-rules').value.trim().slice(0, 1000);
+  try { await Store.upsertRole(role); }
+  catch (e) { alert('保存失败(内容可能过大,试着精简人设或换更小的头像):' + (e.message || '')); return; }
   if (currentRole.id === role.id) currentRole = role;   // 编辑的是当前角色 → 更新内存
   $('role-editor').style.display = 'none';
   editingRoleId = null; pendingAvatar = '';
@@ -245,6 +247,8 @@ async function removeRole(id) {
   const roles = await Store.getRoles();
   if (roles.length <= 1) { alert('至少保留一个角色'); return; }
   if (!confirm('删除这个角色?它的对话历史和羁绊会一并删除(长期画像不受影响)。')) return;
+  const rolesNow = await Store.getRoles();   // confirm 阻塞期间可能已被另一次删除改变,二次校验防删空
+  if (rolesNow.length <= 1 || !rolesNow.some(r => r.id === id)) return;
   const wasActive = currentRole.id === id;
   await Store.deleteRole(id);
   if (wasActive) {
