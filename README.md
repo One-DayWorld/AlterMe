@@ -28,7 +28,7 @@ It's also tiny and hackable: ~6 small JS files, no framework, no build pipeline.
 
 ## 🎯 Features
 
-- 🎭 **Multiple switchable roles** — Not just one persona: built-in templates (queen, listener, playmate, rational advisor) you can freely add, edit, or delete. Each role has its own personality, its own pinned rules, its own chat history and bond level — switch with one tap from the top bar, and give each a custom image avatar. Ask "what model are you?" and it still answers honestly (no fake "I'm GPT").
+- 🎭 **Multiple switchable roles** — Not just one persona: built-in templates (companion, listener, playmate, rational advisor) you can freely add, edit, or delete. Each role has its own personality, its own pinned rules, its own chat history and bond level — switch with one tap from the top bar, and give each a custom image avatar. Ask "what model are you?" and it still answers honestly (no fake "I'm GPT").
 - 🧠 **Real memory, shared across roles** — It quietly distills a long-term profile of you from your conversations; every role shares this understanding of *you*. **Feed it articles** (paste a link or the text) to shape what it knows about your interests.
 - 💞 **Per-role bond & levels** — Each role builds its own relationship: separate XP and levels, the more you talk to it. Small touch, surprisingly sticky.
 - 🔀 **Two models, one tap** — Qwen-Plus (Alibaba) and DeepSeek, both OpenAI-compatible. Switch anytime.
