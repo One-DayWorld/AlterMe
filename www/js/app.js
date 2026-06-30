@@ -1,13 +1,34 @@
-// app.js — UI 接线
-// 对应原 main.js 的 ipcMain.handle('chat') 流程：组装画像注入 → callModel → 入历史 → 提炼缓冲 → 加羁绊。
+// app.js — UI 接线(多角色版)
+// 角色:currentRole 持有当前激活角色对象。对话历史/羁绊按角色,长期画像共享。
 
 const $ = (id) => document.getElementById(id);
 
 let provider = 'qwen';
 let busy = false;
+let currentRole = null;        // 当前激活角色对象
+let editingRoleId = null;      // 角色编辑器:null=新建,否则=被编辑角色 id
+let pendingAvatar = '';        // 编辑器里暂存的头像 dataURL('' 表示无图)
 
-// ── 渲染 ──
+// ── 渲染消息 ── AI 气泡前带当前角色头像(图优先,emoji 兜底);me/sys 不带头像。
 function addMsg(role, text, cls) {
+  if (role === 'ai') {
+    const row = document.createElement('div');
+    row.className = 'airow';
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    if (currentRole && currentRole.avatar) {
+      const im = document.createElement('img'); im.src = currentRole.avatar; av.appendChild(im);
+    } else {
+      av.textContent = (currentRole && currentRole.emoji) || '🙂';
+    }
+    const el = document.createElement('div');
+    el.className = 'msg ' + (cls || 'ai');
+    el.textContent = text;
+    row.appendChild(av); row.appendChild(el);
+    $('messages').appendChild(row);
+    $('messages').scrollTop = $('messages').scrollHeight;
+    return el;   // 返回气泡本体,沿用 typing.textContent 替换逻辑
+  }
   const el = document.createElement('div');
   el.className = 'msg ' + (cls || role);
   el.textContent = text;
@@ -17,35 +38,75 @@ function addMsg(role, text, cls) {
 }
 
 async function refreshBond() {
-  const pet = await Store.getPet();
+  const pet = await Store.getPet(currentRole.id);
   const prof = await Memory.loadProfile();
   const ac = prof.articleCount || 0;
-  $('bond').textContent = `羁绊 Lv.${pet.level} · ${Store.bondTitle(pet.level)}` + (ac ? ` · 读过 ${ac} 篇` : '');
+  $('bond').textContent = `${currentRole.name} · 羁绊 Lv.${pet.level} · ${Store.bondTitle(pet.level)}` + (ac ? ` · 读过 ${ac} 篇` : '');
 }
 
-// 去掉模型偶尔输出的括号情绪描写（移植自原 stripBrackets 思路，可选）
 function clean(text) { return String(text || '').trim(); }
 
-// ── 发送消息（移植 chat 处理流程，去掉实时搜索/工具） ──
+// ── 角色切换条 ──
+async function renderRoleBar() {
+  const roles = await Store.getRoles();
+  const bar = $('rolebar'); bar.innerHTML = '';
+  for (const r of roles) {
+    const chip = document.createElement('button');
+    chip.className = 'role-chip' + (r.id === currentRole.id ? ' active' : '');
+    chip.title = r.name;
+    if (r.avatar) { const im = document.createElement('img'); im.src = r.avatar; chip.appendChild(im); }
+    else chip.textContent = r.emoji || '🙂';
+    chip.onclick = () => switchRole(r.id);
+    bar.appendChild(chip);
+  }
+  const add = document.createElement('button');
+  add.className = 'role-chip add'; add.textContent = '＋'; add.title = '管理角色';
+  add.onclick = () => $('open-settings').click();
+  bar.appendChild(add);
+}
+
+async function switchRole(id) {
+  if (busy) return;
+  const roles = await Store.getRoles();
+  const r = roles.find(x => x.id === id);
+  if (!r) return;
+  await Store.setActiveRoleId(id);
+  currentRole = r;
+  await loadMessagesForRole();
+  await renderRoleBar();
+  await refreshBond();
+}
+
+async function loadMessagesForRole() {
+  $('messages').innerHTML = '';
+  const history = await Store.getHistory(currentRole.id);
+  if (!history.length) addMsg('sys', `「${currentRole.name}」在这儿。聊几句,我会慢慢记住你。`, 'sys');
+  else history.forEach(m => addMsg(m.role === 'user' ? 'me' : 'ai', m.content));
+}
+
+// ── 发送消息(按当前角色) ──
 async function send() {
   if (busy) return;
   const input = $('chat-input');
   const message = input.value.trim();
   if (!message) return;
 
-  const apiKey = await Store.getApiKey(provider);
-  if (!apiKey) { addMsg('sys', `请先在「设置」里填 ${Brain.MODEL_DISPLAY[provider]} 的 API Key`, 'sys'); return; }
-
   busy = true; $('send-btn').disabled = true;
-  input.value = ''; input.style.height = 'auto';
-  addMsg('me', message);
-  const typing = addMsg('ai', '正在思考…', 'ai typing');
+  const roleId = currentRole.id;   // 锁定本轮角色,避免发送中切换/删除导致写错角色
 
+  let typing = null;
   try {
-    const history = await Store.getHistory();
-    const persona = await Store.getPersona();
-    const rules = await Store.getRules();
-    const pet = await Store.getPet();
+    const apiKey = await Store.getApiKey(provider);
+    if (!apiKey) { addMsg('sys', `请先在「设置」里填 ${Brain.MODEL_DISPLAY[provider]} 的 API Key`, 'sys'); return; }
+
+    input.value = ''; input.style.height = 'auto';
+    addMsg('me', message);
+    typing = addMsg('ai', '正在思考…', 'ai typing');
+
+    const history = await Store.getHistory(roleId);
+    const persona = currentRole.persona || '';
+    const rules = currentRole.rules || '';
+    const pet = await Store.getPet(roleId);
     const profile = await Memory.loadProfile();
     const profileInject = Brain.buildProfileInject(profile, pet.level || 1, !!persona);
     const systemPrompt = Brain.buildSystemPrompt(provider, persona, profileInject, rules);
@@ -53,12 +114,10 @@ async function send() {
     const reply = clean(await Brain.callModel(provider, apiKey, systemPrompt, history, message));
     typing.classList.remove('typing'); typing.textContent = reply || '（没有内容）';
 
-    // 入历史（与原版一样保留最近 40 条）
     history.push({ role: 'user', content: message });
     history.push({ role: 'assistant', content: reply });
-    await Store.saveHistory(history);
+    await Store.saveHistory(roleId, history);
 
-    // 提炼缓冲 + 羁绊（聊天 +8；提炼出新理解再 +15）
     Memory.pushTurn(message, reply);
     await Store.addXP(8);
     await refreshBond();
@@ -66,8 +125,8 @@ async function send() {
       Memory.runRefine(provider, apiKey).then(r => { if (r.changed) refreshBond(); }).catch(() => {});
     }
   } catch (e) {
-    typing.classList.remove('typing');
-    typing.textContent = '出错了：' + (e.message || '请检查 API Key 或网络');
+    if (typing) { typing.classList.remove('typing'); typing.textContent = '出错了：' + (e.message || '请检查 API Key 或网络'); }
+    else { addMsg('sys', '出错了：' + (e.message || '请检查 API Key 或网络'), 'sys'); }
   } finally {
     busy = false; $('send-btn').disabled = false;
   }
@@ -110,10 +169,121 @@ async function renderMemory() {
 }
 
 function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-
 function flash(id) { const el = $(id); if (!el) return; el.style.display = 'inline'; setTimeout(() => { el.style.display = 'none'; }, 1800); }
 
-// ── 设置：模型/Key/性格 ──
+// ── 角色管理 ──
+async function renderRoleList() {
+  const roles = await Store.getRoles();
+  const box = $('role-list'); box.innerHTML = '';
+  roles.forEach(r => {
+    const item = document.createElement('div'); item.className = 'role-list-item';
+    const av = document.createElement('div'); av.className = 'ravatar';
+    if (r.avatar) { const im = document.createElement('img'); im.src = r.avatar; av.appendChild(im); }
+    else av.textContent = r.emoji || '🙂';
+    const name = document.createElement('div'); name.className = 'rname';
+    name.textContent = r.name + (r.id === currentRole.id ? ' · 当前' : '');
+    const edit = document.createElement('button'); edit.className = 'btn ghost'; edit.textContent = '编辑'; edit.onclick = () => openRoleEditor(r);
+    const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '删除'; del.onclick = () => removeRole(r.id);
+    item.append(av, name, edit, del);
+    box.appendChild(item);
+  });
+}
+
+function renderAvatarPreview() {
+  const box = $('role-avatar-preview'); box.innerHTML = '';
+  if (pendingAvatar) {
+    const im = document.createElement('img'); im.src = pendingAvatar;
+    im.style.cssText = 'width:48px;height:48px;border-radius:50%;object-fit:cover;vertical-align:middle';
+    box.appendChild(im);
+    const clr = document.createElement('button'); clr.className = 'btn ghost'; clr.textContent = '移除图片';
+    clr.style.marginLeft = '8px';
+    clr.onclick = () => { pendingAvatar = ''; $('role-avatar-file').value = ''; renderAvatarPreview(); };
+    box.appendChild(clr);
+  } else {
+    box.textContent = '（无图片头像,将用 emoji）';
+  }
+}
+
+function openRoleEditor(role) {
+  editingRoleId = role ? role.id : null;
+  pendingAvatar = role ? (role.avatar || '') : '';
+  $('role-editor-title').textContent = role ? `编辑「${role.name}」` : '新建角色';
+  $('role-name').value = role ? role.name : '';
+  $('role-emoji').value = role ? (role.emoji || '') : '';
+  $('role-persona').value = role ? (role.persona || '') : '';
+  $('role-rules').value = role ? (role.rules || '') : '';
+  renderAvatarPreview();
+  $('role-editor').style.display = 'block';
+  $('role-editor').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function saveRoleFromEditor() {
+  const name = $('role-name').value.trim();
+  if (!name) { alert('请填角色名字'); return; }
+  const roles = await Store.getRoles();
+  let role;
+  if (editingRoleId) {
+    role = roles.find(r => r.id === editingRoleId);
+    if (!role) return;
+  } else {
+    role = { id: 'r' + Date.now().toString(36), name: '', emoji: '', avatar: '', persona: '', rules: '' };
+  }
+  role.name = name;
+  role.emoji = $('role-emoji').value.trim();
+  role.avatar = pendingAvatar;
+  role.persona = $('role-persona').value.trim().slice(0, 2000);
+  role.rules = $('role-rules').value.trim().slice(0, 1000);
+  try { await Store.upsertRole(role); }
+  catch (e) { alert('保存失败(内容可能过大,试着精简人设或换更小的头像):' + (e.message || '')); return; }
+  if (currentRole.id === role.id) currentRole = role;   // 编辑的是当前角色 → 更新内存
+  $('role-editor').style.display = 'none';
+  editingRoleId = null; pendingAvatar = '';
+  flash('role-ok');
+  await renderRoleList(); await renderRoleBar(); await refreshBond();
+}
+
+async function removeRole(id) {
+  if (busy) { alert('正在对话中,请稍后再删除角色'); return; }
+  const roles = await Store.getRoles();
+  if (roles.length <= 1) { alert('至少保留一个角色'); return; }
+  if (!confirm('删除这个角色?它的对话历史和羁绊会一并删除(长期画像不受影响)。')) return;
+  const rolesNow = await Store.getRoles();   // confirm 阻塞期间可能已被另一次删除改变,二次校验防删空
+  if (rolesNow.length <= 1 || !rolesNow.some(r => r.id === id)) return;
+  const wasActive = currentRole.id === id;
+  await Store.deleteRole(id);
+  if (wasActive) {
+    currentRole = await Store.getActiveRole();   // deleteRole 已把激活切到第一个
+    await loadMessagesForRole();
+  }
+  await renderRoleList(); await renderRoleBar(); await refreshBond();
+}
+
+// 头像上传:读图 → canvas 居中裁剪缩到 128×128 → JPEG dataURL,控制体积
+function onAvatarFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => { alert('图片读取失败,请换一张'); $('role-avatar-file').value = ''; };
+  reader.onload = () => {
+    const img = new Image();
+    img.onerror = () => { alert('图片格式不支持,请换一张'); $('role-avatar-file').value = ''; };
+    img.onload = () => {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const s = Math.min(img.width, img.height);
+      const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+      ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+      pendingAvatar = canvas.toDataURL('image/jpeg', 0.8);
+      renderAvatarPreview();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── 设置:模型/Key ──
 async function loadKeyField() {
   $('provider').value = provider;
   $('api-key').value = await Store.getApiKey(provider);
@@ -137,12 +307,14 @@ async function feed(getContent, label) {
 // ── 初始化 ──
 async function init() {
   provider = await Store.getProvider();
-  await refreshBond();
+  const roles = await Store.getRoles();                 // 触发首次迁移
+  const activeId = await Store.getActiveRoleId();
+  currentRole = roles.find(r => r.id === activeId) || roles[0];
+  if (!currentRole) { addMsg('sys', '角色数据异常,请到设置→备份恢复重新导入,或清空记忆重置。', 'sys'); return; }
 
-  // 历史回填
-  const history = await Store.getHistory();
-  if (!history.length) addMsg('sys', '嗨，我是你的 AlterMe。聊几句，我会慢慢记住你。', 'sys');
-  else history.forEach(m => addMsg(m.role === 'user' ? 'me' : 'ai', m.content));
+  await renderRoleBar();
+  await refreshBond();
+  await loadMessagesForRole();
 
   // 输入框自适应高度 + 回车发送（Shift+Enter 换行）
   const input = $('chat-input');
@@ -150,15 +322,23 @@ async function init() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
   $('send-btn').onclick = send;
 
+  // 清屏:只清当前屏,不动历史
+  $('clear-screen').onclick = () => { $('messages').innerHTML = ''; addMsg('sys', '（已清屏,聊天历史仍保留）', 'sys'); };
+
   // 设置开关
-  $('open-settings').onclick = async () => { await loadKeyField(); $('persona').value = await Store.getPersona(); $('rules').value = await Store.getRules(); await renderMemory(); $('settings-overlay').classList.add('open'); };
+  $('open-settings').onclick = async () => { await loadKeyField(); await renderRoleList(); await renderMemory(); $('role-editor').style.display = 'none'; $('settings-overlay').classList.add('open'); };
   $('close-settings').onclick = () => $('settings-overlay').classList.remove('open');
 
   $('provider').onchange = async () => { provider = $('provider').value; await Store.setProvider(provider); await loadKeyField(); await refreshBond(); };
   $('save-key').onclick = async () => { await Store.setApiKey(provider, $('api-key').value.trim()); flash('key-ok'); };
-  $('save-persona').onclick = async () => { await Store.setPersona($('persona').value); $('persona').value = await Store.getPersona(); flash('persona-ok'); };
-  $('save-rules').onclick = async () => { await Store.setRules($('rules').value); $('rules').value = await Store.getRules(); flash('rules-ok'); };
 
+  // 角色管理接线
+  $('add-role').onclick = () => openRoleEditor(null);
+  $('role-save').onclick = saveRoleFromEditor;
+  $('role-cancel').onclick = () => { $('role-editor').style.display = 'none'; editingRoleId = null; pendingAvatar = ''; };
+  $('role-avatar-file').onchange = onAvatarFile;
+
+  // 喂文章
   $('feed-url').onclick = () => feed(async () => await Article.fetchUrl($('article-url').value.trim()), '链接');
   $('feed-text').onclick = () => feed(async () => {
     const t = $('article-text').value.trim();
@@ -166,6 +346,7 @@ async function init() {
     return { title: t.slice(0, 30), text: t };
   }, '正文');
 
+  // 清空记忆(长期画像,与「清屏」不同)
   $('clear-memory').onclick = async () => {
     if ($('clear-memory').dataset.armed !== '1') { $('clear-memory').dataset.armed = '1'; $('clear-memory').textContent = '⚠ 再点一次确认清空'; setTimeout(() => { $('clear-memory').dataset.armed = '0'; $('clear-memory').textContent = '🗑 清空全部记忆'; }, 3000); return; }
     $('clear-memory').dataset.armed = '0'; $('clear-memory').textContent = '🗑 清空全部记忆';
@@ -187,21 +368,20 @@ async function init() {
   $('import-mem').onclick = async () => {
     const t = $('backup-box').value.trim();
     if (!t) { $('backup-status').textContent = '请先把备份 JSON 粘到上面的框里'; return; }
-    if ($('import-mem').dataset.armed !== '1') {   // 二次确认：导入会覆盖当前数据
+    if ($('import-mem').dataset.armed !== '1') {
       $('import-mem').dataset.armed = '1'; $('import-mem').textContent = '⚠ 再点确认（覆盖当前）';
       setTimeout(() => { $('import-mem').dataset.armed = '0'; $('import-mem').textContent = '导入'; }, 3000); return;
     }
     $('import-mem').dataset.armed = '0'; $('import-mem').textContent = '导入';
     try {
       const n = await Store.importAll(JSON.parse(t));
-      // 用恢复后的数据刷新整个界面
       provider = await Store.getProvider();
-      $('messages').innerHTML = '';
-      const history = await Store.getHistory();
-      if (!history.length) addMsg('sys', '（备份里没有对话历史）', 'sys');
-      else history.forEach(m => addMsg(m.role === 'user' ? 'me' : 'ai', m.content));
-      await loadKeyField(); $('persona').value = await Store.getPersona(); $('rules').value = await Store.getRules();
-      await renderMemory(); await refreshBond();
+      const roles2 = await Store.getRoles();
+      const activeId2 = await Store.getActiveRoleId();
+      currentRole = roles2.find(r => r.id === activeId2) || roles2[0];
+      await renderRoleBar();
+      await loadMessagesForRole();
+      await loadKeyField(); await renderRoleList(); await renderMemory(); await refreshBond();
       flash('backup-ok'); $('backup-status').textContent = `已恢复 ${n} 项并刷新。`;
     } catch (e) { $('backup-status').textContent = '导入失败：' + (e.message || 'JSON 格式不对'); }
   };
