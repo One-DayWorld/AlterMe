@@ -108,25 +108,18 @@ const Store = (() => {
 
   const DEFAULT_PET = { name: '朋友', xp: 0, level: 1 };
 
-  async function getPet()      { const p = await getJSON('pet', DEFAULT_PET); p.level = calcLevelFromXP(p.xp || 0); return p; }
-  async function savePet(pet)  { pet.level = calcLevelFromXP(pet.xp || 0); await setJSON('pet', pet); return pet; }
-  async function addXP(amount) { const p = await getPet(); p.xp = (p.xp || 0) + amount; return await savePet(p); }
+  // 羁绊按角色存:pet_<roleId>。roleId 省略 → 当前激活角色(聊天/提炼/喂文章的 XP 都记给激活角色)。
+  async function getPet(roleId)      { const id = roleId || await getActiveRoleId(); const p = await getJSON('pet_' + id, DEFAULT_PET); p.level = calcLevelFromXP(p.xp || 0); return p; }
+  async function savePet(roleId, pet){ const id = roleId || await getActiveRoleId(); pet.level = calcLevelFromXP(pet.xp || 0); await setJSON('pet_' + id, pet); return pet; }
+  async function addXP(amount)       { const id = await getActiveRoleId(); const p = await getPet(id); p.xp = (p.xp || 0) + amount; return await savePet(id, p); }
 
   async function getProvider() { return (await getRaw('provider')) || 'qwen'; }
   async function setProvider(p){ await setRaw('provider', p); }
   async function getApiKey(provider) { return (await getRaw('apiKey_' + provider)) || ''; }
   async function setApiKey(provider, key) { await setRaw('apiKey_' + provider, key || ''); }
 
-  async function getPersona()  { return (await getRaw('persona')) || ''; }
-  async function setPersona(t) { await setRaw('persona', String(t || '').trim().slice(0, 2000)); }
-
-  // 本场规则:用户为当前这场对话设的硬性铁律。钉在 system prompt 最顶端、永远随每次请求发送,
-  // 绝不会被对话历史挤掉 —— 无论聊多长都不会忘规则。短小为宜。
-  async function getRules()  { return (await getRaw('sessionRules')) || ''; }
-  async function setRules(t) { await setRaw('sessionRules', String(t || '').trim().slice(0, 1000)); }
-
-  async function getHistory()  { return await getJSON('chatHistory', []); }
-  async function saveHistory(h){ if (h.length > HISTORY_MAX) h = h.slice(-HISTORY_MAX); await setJSON('chatHistory', h); }
+  async function getHistory(roleId)   { const id = roleId || await getActiveRoleId(); return await getJSON('chatHistory_' + id, []); }
+  async function saveHistory(roleId, h){ const id = roleId || await getActiveRoleId(); if (h.length > HISTORY_MAX) h = h.slice(-HISTORY_MAX); await setJSON('chatHistory_' + id, h); }
 
   // ── 备份 / 恢复 ──
   // 把全部可恢复数据原样导出为一个对象;导入时原样写回。存的就是原始字符串(有的是 JSON 串、
