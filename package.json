@@ -1,0 +1,19 @@
+{
+  "name": "alterme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "带性格与记忆的双模型聊天 App (通义千问 / DeepSeek)，Capacitor 打包到鸿蒙 4.2",
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap open android",
+    "dev": "cd www && python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/preferences": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}

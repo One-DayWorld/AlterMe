@@ -1,0 +1,46 @@
+# ===== 依赖 / 包管理 =====
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ===== 本地配置(含机器绝对路径、SDK 路径,切勿提交) =====
+android/local.properties
+*.local
+.env
+.env.*
+!.env.example
+
+# ===== 构建产物 =====
+android/build/
+android/app/build/
+android/.gradle/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+www/dist/
+
+# ===== Capacitor 生成/拷贝的资产(由 `cap sync` 重新生成) =====
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+android/capacitor-cordova-android-plugins/
+
+# ===== 签名密钥(严禁入库) =====
+*.jks
+*.keystore
+*.p12
+*.pem
+keystore.properties
+android/app/keystore*/
+
+# ===== IDE / 本地工具 =====
+.idea/
+*.iml
+.vscode/
+*.swp
+.claude/
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble

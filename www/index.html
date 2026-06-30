@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>AlterMe</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <span class="title">AlterMe</span>
+    <span class="bond" id="bond">羁绊 Lv.1 · 新朋友</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="open-settings">⚙ 设置</button>
+  </div>
+
+  <div id="messages"></div>
+
+  <div class="inputbar">
+    <textarea id="chat-input" rows="1" placeholder="说点什么…"></textarea>
+    <button class="send-btn" id="send-btn">发送</button>
+  </div>
+
+  <!-- 设置抽屉 -->
+  <div class="overlay" id="settings-overlay">
+    <div class="sheet">
+      <button class="icon-btn close" id="close-settings">✕ 关闭</button>
+      <h2>设置</h2>
+
+      <div class="group">
+        <h3>模型 & API KEY</h3>
+        <label class="row">选择模型
+          <select id="provider">
+            <option value="qwen">通义千问 Qwen-Plus</option>
+            <option value="deepseek">DeepSeek Chat</option>
+          </select>
+        </label>
+        <div class="note" id="key-hint">填入当前所选模型的 API Key（本地保存，不上传）。</div>
+        <input class="txt" id="api-key" type="password" placeholder="当前模型的 API Key">
+        <button class="btn" id="save-key">保存</button>
+        <span class="ok" id="key-ok">✓ 已保存</span>
+      </div>
+
+      <div class="group">
+        <h3>本场规则（置顶 · 永不遗忘）</h3>
+        <div class="note">为这场对话设几条硬性铁律。它会被钉在最顶端、随每条消息一起发送，优先级高于性格人设，无论聊多长都不会被挤掉、不会忘。建议简短（如：始终保持角色不跳戏 / 只用第二人称称呼我 / 不准说教）。</div>
+        <textarea class="txt" id="rules" placeholder="例：① 全程保持角色，绝不跳戏或自称 AI；② 用『你』称呼我，自称『本王』；③ 回答简短，不说教。"></textarea>
+        <button class="btn" id="save-rules">保存规则</button>
+        <span class="ok" id="rules-ok">✓ 已保存</span>
+      </div>
+
+      <div class="group">
+        <h3>性格人设</h3>
+        <div class="note">写一段性格描述，聊天时它会完全照此说话（语气 / 自称 / 怎么称呼你）。留空＝中性亲切的朋友。模型身份如实回答、不编造事实不受影响。</div>
+        <textarea class="txt" id="persona" placeholder="例：高冷女王风的女性 AI，说话简短克制，带点居高临下的慵懒，偶尔毒舌但其实在意你。自称『本王』，叫你『你』。"></textarea>
+        <button class="btn" id="save-persona">保存性格</button>
+        <span class="ok" id="persona-ok">✓ 已保存</span>
+      </div>
+
+      <div class="group">
+        <h3>喂文章（塑造它对你的理解）</h3>
+        <div class="note">贴一个链接自动抓正文，或直接粘贴文章正文。它会从中提炼你的兴趣领域。</div>
+        <input class="txt" id="article-url" type="url" placeholder="https:// 文章链接">
+        <button class="btn" id="feed-url">抓取链接喂它</button>
+        <div class="note" style="margin-top:10px">或粘贴正文：</div>
+        <textarea class="txt" id="article-text" placeholder="把文章正文粘到这里…"></textarea>
+        <button class="btn" id="feed-text">喂这段正文</button>
+        <span class="ok" id="feed-ok">✓ 已记下</span>
+        <div class="note" id="feed-status"></div>
+      </div>
+
+      <div class="group">
+        <h3>记忆（它记住的你）</h3>
+        <div id="memory-body"><div class="mem-empty">加载中…</div></div>
+        <button class="btn danger" id="clear-memory" style="margin-top:10px">🗑 清空全部记忆</button>
+        <span class="ok" id="clear-ok">✓ 已清空</span>
+      </div>
+
+      <div class="group">
+        <h3>备份与恢复（导出 / 导入记忆）</h3>
+        <div class="note">换机或重装前，点「导出」生成备份并「复制」保存到安全的地方（备忘录/云盘均可）；重装后把备份粘回下框，点「导入」一键恢复。备份含画像、对话历史、人设、本场规则、羁绊和 API Key —— <b>含 Key，请妥善保管，勿外发</b>。</div>
+        <textarea class="txt" id="backup-box" placeholder="点『导出到下框』生成备份；或把之前的备份 JSON 粘到这里再点『导入』…"></textarea>
+        <button class="btn" id="export-mem">导出到下框</button>
+        <button class="btn" id="copy-backup">复制</button>
+        <button class="btn" id="import-mem">导入</button>
+        <span class="ok" id="backup-ok">✓ 完成</span>
+        <div class="note" id="backup-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/http.js"></script>
+  <script src="js/brain.js"></script>
+  <script src="js/memory.js"></script>
+  <script src="js/article.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

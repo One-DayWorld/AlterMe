@@ -1,0 +1,13 @@
+{
+  "appId": "com.alterme.app",
+  "appName": "AlterMe",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
